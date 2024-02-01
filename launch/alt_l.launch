@@ -1,0 +1,95 @@
+<launch>
+  <param name="use_sim_time" value="False" />
+  <node name="RVIZ" pkg="rviz" type="rviz" args=" -d $(find gun_pkg)/param/gun_ddk.rviz" />
+
+  <!-- Launch the realsense2_camera node -->
+  <include file="$(find realsense2_camera)/launch/rs_rgbd.launch">
+    <arg name="enable_sync" value="true"/>
+    <arg name="enable_gyro" value="true"/>
+    <arg name="enable_accel" value="true"/>
+    <arg name="enable_pointcloud" value="true"/>
+    <arg name="enable_pose" value="true"/>
+    <arg name="filters" value="pointcloud"/>
+  </include>
+
+  <node pkg="gun_pkg" type="imu_to_pos.py" name="imu_to_pose" output="screen"/>
+
+  <node pkg="depthimage_to_laserscan" type="depthimage_to_laserscan" name="depthimage_to_laserscan">
+    <remap from="image" to="/camera/depth/image_rect_raw"/>
+    <remap from="scan" to="/camera/depth_registered/scan"/>
+    <param name="output_frame_id" value="camera_depth_frame"/>
+    <param name="range_min" value="0.1"/>
+    <param name="range_max" value="10.0"/>
+    <param name="scan_height" value="10"/>
+  </node>
+
+  <arg name="scan_topic" default="/camera/depth_registered/scan"/>
+  <arg name="map_frame" default="map"/>
+
+  <!-- Launch the gmapping node -->
+  <node pkg="gmapping" type="slam_gmapping" name="slam_gmapping" output="screen">
+    <param name="base_frame" value="camera_link"/>
+    <param name="odom_frame" value="odom"/>
+    <param name="map_frame" value="$(arg map_frame)"/>
+    <remap from="scan" to="$(arg scan_topic)"/>
+    <param name="map_update_interval" value="1.0"/>
+    <param name="maxUrange" value="5.6"/>
+    <param name="sigma" value="0.05"/>
+    <param name="kernelSize" value="1"/>
+    <param name="lstep" value="0.05"/>
+    <param name="astep" value="0.05"/>
+    <param name="iterations" value="5"/>
+    <param name="lsigma" value="0.075"/>
+    <param name="ogain" value="3.0"/>
+    <param name="lskip" value="0"/>
+    <param name="srr" value="0.01"/>
+    <param name="srt" value="0.02"/>
+    <param name="str" value="0.01"/>
+    <param name="stt" value="0.02"/>
+    <param name="linearUpdate" value="0.2"/>
+    <param name="angularUpdate" value="0.2"/>
+    <param name="temporalUpdate" value="1.0"/>
+    <param name="resampleThreshold" value="0.5"/>
+    <param name="particles" value="30"/>
+    <param name="transform_publish_period" value="0.05"/>
+  </node>
+
+
+
+  <arg name="mav_name" default=""/>
+  <arg name="cam_name" default="tof"/>
+  <arg name="map_frame_id" default="map"/>
+  <arg name="base_frame_id" default="camera_link"/>
+  <arg name="points_topic" default="points_depth_sonar"/>
+  <arg name="sensor_range" default="5.0" />
+
+  
+  <node pkg="octomap_server" type="octomap_server_node" name="octomap_server">
+
+    <!-- fixed map frame (set to 'map' if SLAM or localization running!) -->
+    <param name="frame_id" type="string" value="$(arg map_frame_id)" />
+
+    <param name="resolution" type="double" value="0.05" />
+
+    <param name="base_frame_id" type="string" value="$(arg base_frame_id)" />
+
+    <!-- maximum range to integrate (speedup!) -->
+    <param name="sensor_model/max_range" value="$(arg sensor_range)" />
+
+    <param name="filter_ground" type="bool" value="false"/>
+    <param name="ground_filter/distance" value="0.1"/>
+    <param name="ground_filter/plane_distance" value="0.07"/>
+
+    <!-- -0.5 to 2.5-->
+    <param name="occupancy_min_z" value="0.0"/>
+    <param name="occupancy_max_z" value="2.5"/>
+    <param name="pointcloud_min_z" value="0.0"/>
+    <param name="pointcloud_max_z" value="2.5"/>
+
+    <!-- data source to integrate (PointCloud2) -->
+    <remap from="cloud_in" to="$(arg points_topic)" />
+  </node>
+
+  <node pkg="gun_pkg" type="depth_sonar_fusepoints.py" name="ds_fuse" output="screen"/>
+
+</launch>

@@ -1,0 +1,32 @@
+frequency: 30
+sensor_timeout: 0.1
+
+two_d_mode: false
+transform_time_offset: 0.0
+
+imu0:
+  topic: /camera/imu
+  linear_acceleration_frame: camera_link
+  angular_velocity_frame: camera_link
+  orientation_frame: camera_link
+  linear_acceleration_stdev: 0.1
+  angular_velocity_stdev: 0.05
+  orientation_stdev: 0.1
+  accel_offset: [0.0, 0.0, 0.0]
+  orientation_offset: [0.0, 0.0, 0.0]
+
+odom0:
+  topic: /camera/odom/sample
+  world_frame: odom
+  child_frame: camera
+  pose_rejection_threshold: 5.0
+  twist_rejection_threshold: 1.0
+  pose_covariance_diagonal: [0.025, 0.025, 0.05, 0.0, 0.0, 0.1]
+  twist_covariance_diagonal: [0.025, 0.025, 0.05, 0.0, 0.0, 0.1]
+
+map_frame: map
+base_link_frame: camera_link
+tf_broadcast: true
+
+debug: false
+debug_out_file: /tmp/ekf_debug.out

@@ -1,0 +1,51 @@
+<launch>
+  <param name="use_sim_time" value="False" />
+  <node name="RVIZ" pkg="rviz" type="rviz" args=" -d $(find gun_pkg)/param/gun_ddk.rviz" />
+
+  <!-- Launch the realsense2_camera node -->
+  <include file="$(find realsense2_camera)/launch/rs_rgbd.launch">
+    <arg name="enable_sync" value="true"/>
+    <arg name="enable_gyro" value="true"/>
+    <arg name="enable_accel" value="true"/>
+    <arg name="enable_pointcloud" value="true"/>
+    <arg name="enable_pose" value="true"/>
+    <arg name="filters" value="pointcloud"/>
+  </include>
+
+  <node pkg="gun_pkg" type="imu_to_pos.py" name="fbroad" output="screen"/>
+
+  <arg name="mav_name" default=""/>
+  <arg name="cam_name" default="tof"/>
+  <arg name="map_frame_id" default="map"/>
+  <arg name="base_frame_id" default="camera_link"/>
+  <arg name="points_topic" default="camera/depth_registered/points"/>
+  <arg name="sensor_range" default="5.0" />
+
+  
+  <node pkg="octomap_server" type="octomap_server_node" name="octomap_server">
+
+    <!-- fixed map frame (set to 'map' if SLAM or localization running!) -->
+    <param name="frame_id" type="string" value="$(arg map_frame_id)" />
+
+    <param name="resolution" type="double" value="0.05" />
+
+    <param name="base_frame_id" type="string" value="$(arg base_frame_id)" />
+
+    <!-- maximum range to integrate (speedup!) -->
+    <param name="sensor_model/max_range" value="$(arg sensor_range)" />
+
+    <param name="filter_ground" type="bool" value="false"/>
+    <param name="ground_filter/distance" value="0.1"/>
+    <param name="ground_filter/plane_distance" value="0.07"/>
+
+    <!-- -0.5 to 2.5-->
+    <param name="occupancy_min_z" value="-0.5"/>
+    <param name="occupancy_max_z" value="2.5"/>
+    <param name="pointcloud_min_z" value="-0.5"/>
+    <param name="pointcloud_max_z" value="2.5"/>
+
+    <!-- data source to integrate (PointCloud2) -->
+    <remap from="cloud_in" to="$(arg points_topic)" />
+  </node>
+
+</launch>

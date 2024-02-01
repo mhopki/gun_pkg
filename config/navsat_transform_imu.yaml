@@ -1,0 +1,9 @@
+frequency: 30
+
+imu0:
+  remove_gravitational_acceleration: true
+  linear_acceleration_stdev: 0.04
+  angular_velocity_stdev: 0.02
+  orientation_stdev: 0.01
+
+transform_time_offset: 0.0

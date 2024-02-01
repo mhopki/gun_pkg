@@ -1,0 +1,26 @@
+<launch>
+  <!-- Launch the RealSense D435i camera -->
+  <include file="$(find realsense2_camera)/launch/rs_camera.launch">
+    <arg name="serial_no" value="147322072004" />
+  </include>
+
+  <!-- Launch ORB_SLAM2 with the RealSense camera -->
+  <node pkg="ORB_SLAM2" type="rgbd_tum" name="rgbd_tum" output="screen">
+    <param name="camera_topic" type="string" value="/camera/aligned_depth_to_color/image_raw" />
+    <param name="camera_info_topic" type="string" value="/camera/aligned_depth_to_color/camera_info" />
+    <param name="publish_pointcloud" type="bool" value="true" />
+    <param name="pointcloud_topic" type="string" value="/orb_slam2/pointcloud" />
+    <param name="frame_id" type="string" value="camera_depth_optical_frame" />
+    <param name="camera_config" type="string" value="$(find realsense2_camera)/config/d435i.yaml" />
+  </node>
+
+  <!-- Convert the depth image to laser scans -->
+  <node pkg="depthimage_to_laserscan" type="depthimage_to_laserscan" name="depthimage_to_laserscan" output="screen">
+    <remap from="depth/image_raw" to="/camera/aligned_depth_to_color/image_raw" />
+    <remap from="depth/image_raw_camera_info" to="/camera/aligned_depth_to_color/camera_info" />
+    <param name="scan_height" type="double" value="0.5" />
+    <param name="output_frame_id" type="string" value="laser_frame" />
+  </node>
+
+</launch>
+

@@ -1,0 +1,16 @@
+<launch>
+  <param name="use_sim_time" value="False" />
+  <node name="RVIZ" pkg="rviz" type="rviz" args=" -d $(find gun_pkg)/param/realsense.rviz" />
+
+  <arg name="sensor_range" default="5.0" />
+
+  <!-- Launch the realsense2_camera node -->
+  <include file="$(find realsense2_camera)/launch/rs_rgbd.launch">
+    <arg name="enable_sync" value="true"/>
+    <arg name="enable_gyro" value="true"/>
+    <arg name="enable_accel" value="true"/>
+    <arg name="enable_pointcloud" value="true"/>
+    <arg name="enable_pose" value="true"/>
+    <arg name="filters" value="pointcloud"/>
+  </include>
+</launch>

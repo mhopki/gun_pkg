@@ -1,0 +1,4 @@
+<launch>
+  <param name="use_sim_time" value="False" />
+  <node name="RVIZ" pkg="rviz" type="rviz" args=" -d $(find gun_pkg)/param/gun_ddk.rviz" />
+</launch>
