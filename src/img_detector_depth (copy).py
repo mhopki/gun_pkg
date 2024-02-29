@@ -17,12 +17,12 @@ def image_callback(msg):
 
     # Convert the depth image to a numpy array
     depth_image = bridge.imgmsg_to_cv2(msg, desired_encoding="passthrough")
-    #new = np.ones_like(depth_image) * 277
+    new = np.ones_like(depth_image) * 277
     #0 = depth-passive, 1 = depth-active
     #cam_type = 1
     #cam_fish = 1
 
-    """center = (depth_image.shape[1] // 2, depth_image.shape[0] // 2)
+    center = (depth_image.shape[1] // 2, depth_image.shape[0] // 2)
     print(center, depth_image.shape[1], depth_image.shape[0])
     radius = 15
     depth_value = (255, 0, 0) # Depth in meters
@@ -30,21 +30,10 @@ def image_callback(msg):
     new = cv2.circle(new, center, radius, depth_value, thickness=-1)
     #depth_image = cv2.circle(depth_image, center, radius, depth_value, thickness=-1)
 
-    """
-    # Create a depth mask for the circle
-    y, x = np.ogrid[:depth_image.shape[0], :depth_image.shape[1]]
-    """
-    new = depth_image.copy()
-
-    radius = 15
-    mask = (x - depth_image.shape[1] // 2) ** 2 + (y - depth_image.shape[0] // 2) ** 2 < radius ** 2
-
-    new[mask] = 277
-
     new_image = bridge.cv2_to_imgmsg(new, encoding="passthrough")
 
     #print(depth_image)
-    depth_image_pub.publish(new_image)"""
+    depth_image_pub.publish(new_image)
 
     # Create a grayscale image (single-channel)
     #Realsensed435i alpha=0.0052, size = 640,480
@@ -58,9 +47,18 @@ def image_callback(msg):
 
     if cam_fish == 1:
         #TOF FISHEYE
+        # Create a meshgrid of coordinates
+        y, x = np.ogrid[:depth_image.shape[0], :depth_image.shape[1]]
+
+        # Create a mask for the circle
         radius = 95
-        mask = (x - depth_image.shape[1] // 2) ** 2 + (y - depth_image.shape[0] // 2) ** 2 >= radius ** 2
-        dp = 0 if cam_type == 0 else 255
+        mask = (x - center[0]) ** 2 + (y - center[1]) ** 2 >= radius ** 2
+        if cam_type == 0:
+            dp = 0
+        elif cam_type == 1:
+            dp = 255
+
+        # Set the depth value for the circle
         depth_gray[mask] = dp
 
     # Create a color image (bgr8) from the grayscale image
@@ -98,7 +96,6 @@ def image_callback(msg):
                 sum_box.append([x,y,w,h])
                 ##print("Window found", w, h)
                 #break
-    
     cascade = 1
     win_tol = depth_image.shape[1]*0.0625/2 #normal: depth_image.shape[1]*0.0625/2 #big_window tolerance 20 in 640x480
     max_windows = []
@@ -107,32 +104,127 @@ def image_callback(msg):
         temp = []
         temp_r = []
         cascade = 0
-        
-        #merge overlapping windows
-        for i, box_i in enumerate(sum_box):
-            for j, box_j in enumerate(sum_box):
-                if i != j:
-                    if (
-                        (box_i[0] > box_j[0] - win_tol and box_i[0] <= box_j[0] + box_j[2] + win_tol) and
-                        (box_i[1] > box_j[1] - win_tol and box_i[1] <= box_j[1] + box_j[3] + win_tol)
-                    ):
-                        if box_j[0] > box_i[0]:
-                            t_x, t_y, t_w, t_h = box_i[0], box_i[1], abs(box_i[0] - (box_j[0] + box_j[2])), abs(box_i[1] - (box_j[1] + box_j[3]))
-                        else:
-                            t_x, t_y, t_w, t_h = box_j[0], box_j[1], abs(box_i[0] + box_i[2] - box_j[0]), abs(box_i[1] + box_i[3] - box_j[1])
-
-                        if [t_x, t_y, t_w, t_h] not in temp:
-                            temp.append((t_x, t_y, t_w, t_h))
-                            if box_i not in temp_r:
-                                temp_r.append(box_i)
-                            if box_j not in temp_r:
-                                temp_r.append(box_j)
+        ##print("inloop")
+        for i in range(0,len(sum_box)):
+            ##print("i_scroll", i, len(sum_box))
+            for j in range(0,len(sum_box)):
+                ##print("j_scroll", j, len(sum_box))
+                if (sum_box[i] != sum_box[j]):
+                    i_x = sum_box[i][0]
+                    i_y = sum_box[i][1]
+                    i_w = sum_box[i][2]
+                    i_h = sum_box[i][3]
+                    ii_x = sum_box[j][0]
+                    ii_y = sum_box[j][1]
+                    ii_w = sum_box[j][2]
+                    ii_h = sum_box[j][3]
+                    """if (i_x > ii_x and i_x < ii_x+ii_w) and (i_y > ii_y and i_y < ii_y+ii_h): #i is in j
+                        print("i in j")
+                        t_x = ii_x
+                        t_y = ii_y
+                        t_w = i_w + ii_w - abs(ii_x+ii_w - i_x)
+                        t_h = i_h + ii_h - abs(ii_y+ii_h - i_y)
+                        if [t_x,t_y,t_w,t_h] not in temp:
+                            cv2.rectangle(depth_color, (t_x, t_y), (t_x + t_w, t_y + t_h), (0, 255, 0), 1)
+                            cv2.putText(depth_color, "Big Window", (t_x, t_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
+                            print("Big Window found", t_w, t_h)
+                            temp.append([t_x,t_y,t_w,t_h])
+                            if sum_box[i] not in temp_r:
+                                temp_r.append(sum_box[i])
+                            if sum_box[j] not in temp_r:
+                                temp_r.append(sum_box[j])
                             cascade = 1
+                    elif (ii_x > i_x and ii_x < i_x+i_w) and (ii_y > i_y and ii_y < i_y+i_h): #j is in i
+                        print("j in i")
+                        t_x = i_x
+                        t_y = i_y
+                        t_w = ii_w + i_w - abs(i_x+i_w - ii_x)
+                        t_h = ii_h + i_h - abs(i_y+i_h - ii_y)
+                        if [t_x,t_y,t_w,t_h] not in temp:
+                            cv2.rectangle(depth_color, (t_x, t_y), (t_x + t_w, t_y + t_h), (0, 255, 0), 1)
+                            cv2.putText(depth_color, "Big Window", (t_x, t_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
+                            print("Big Window found", t_w, t_h)
+                            temp.append([t_x,t_y,t_w,t_h])
+                            if sum_box[i] not in temp_r:
+                                temp_r.append(sum_box[i])
+                            if sum_box[j] not in temp_r:
+                                temp_r.append(sum_box[j])
+                            cascade = 1"""
+                    if (i_x > ii_x - win_tol and i_x <= ii_x+ii_w + win_tol) and (i_y > ii_y - win_tol and i_y <= ii_y+ii_h + win_tol): #i is prox of j left
+                        ##print("tol_find")
+                        ##print("fusion of: ", sum_box[i], " + ", sum_box[j])
+                        if ii_x > i_x:
+                            t_x = i_x
+                        else:
+                            t_x = ii_x
 
-        #add max_sized windows and remove smaller windows
+                        if ii_y > i_y:
+                            t_y = i_y
+                        else:
+                            t_y = ii_y
+
+                        if ii_x+ii_w > i_x+i_w:
+                            t_w = abs(t_x - (ii_x+ii_w))
+                        else:
+                            t_w = abs(t_x - (i_x+i_w))
+
+                        if ii_y+ii_h > i_y+i_h:
+                            t_h = abs(t_y - (ii_y+ii_h))
+                        else:
+                            t_h = abs(t_y - (i_y+i_h))
+
+                        ##print("BWdim: ", t_x, t_y, t_w, t_h)
+                        if [t_x,t_y,t_w,t_h] not in temp:
+                            #cv2.rectangle(depth_color, (t_x, t_y), (t_x + t_w, t_y + t_h), (0, 255, 0), 1)
+                            #cv2.putText(depth_color, "Big Window", (t_x, t_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
+                            ##print("Big Window found", t_w, t_h)
+                            temp.append([t_x,t_y,t_w,t_h])
+                            if sum_box[i] not in temp_r:
+                                temp_r.append(sum_box[i])
+                            if sum_box[j] not in temp_r:
+                                temp_r.append(sum_box[j])
+                            cascade = 1
+                    """elif (i_x >= ii_x and i_x < ii_x+ii_w + win_tol) and (i_y >= ii_y and i_y < ii_y+ii_h + win_tol): #i is prox of j right
+                        print("tol_find")
+                        if ii_x > i_x:
+                            t_x = i_x
+                        else:
+                            t_x = ii_x
+
+                        if ii_y > i_y:
+                            t_y = i_y
+                        else:
+                            t_y = ii_y
+
+                        if ii_x+ii_w > i_x+i_w:
+                            t_w = abs(t_x - ii_x+ii_w)
+                        else:
+                            t_w = abs(t_x - i_x+i_w)
+
+                        if ii_y+ii_h > i_y+i_h:
+                            t_h = abs(t_y - ii_y+ii_h)
+                        else:
+                            t_h = abs(t_y - i_y+i_h)
+
+                        if [t_x,t_y,t_w,t_h] not in temp:
+                            cv2.rectangle(depth_color, (t_x, t_y), (t_x + t_w, t_y + t_h), (0, 255, 0), 1)
+                            cv2.putText(depth_color, "Big Window", (t_x, t_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
+                            print("Big Window found", t_w, t_h)
+                            temp.append([t_x,t_y,t_w,t_h])
+                            if sum_box[i] not in temp_r:
+                                temp_r.append(sum_box[i])
+                            if sum_box[j] not in temp_r:
+                                temp_r.append(sum_box[j])
+                            cascade = 1"""
+
+
+
         if len(temp) > 0:
-
-            if set(temp) == set(temp_r):
+            ##print("tempset")
+            ##print("OG: ", sum_box)
+            ##print("ADD: ", temp)
+            ##print("REM: ", temp_r)
+            if sorted(temp) == sorted(temp_r):
                 ##print("BREAK")
                 cascade = 0
             for box in temp:
@@ -147,20 +239,22 @@ def image_callback(msg):
             temp = []
             temp_r = []
         
-        #publish windows
         if cascade == 0 or len(sum_box) <= 1:
-
+            #max_windows = sum_box.copy()
+            #for box in origin_box:
+            #    if box in max_windows:
+            #        max_windows.remove(box)
+            #print()
             box_out = Float32MultiArray()
             box_list = []
             for box in sum_box:
                 cv2.rectangle(depth_color, (box[0], box[1]), (box[0] + box[2], box[1] + box[3]), (255, 0, 0), 1)
                 cv2.putText(depth_color, "Window", (box[0], box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1) #MAX  
-                #print(box) 
-                """box_list.append(box[0])
+                print(box) 
+                box_list.append(box[0])
                 box_list.append(box[1])
                 box_list.append(box[2])
-                box_list.append(box[3])"""
-                box_list.extend(box)
+                box_list.append(box[3])
                 
             box_out.data = box_list
             window_pub.publish(box_out)         
@@ -171,12 +265,11 @@ def image_callback(msg):
             for box in sum_box:
                 cv2.rectangle(depth_color, (box[0], box[1]), (box[0] + box[2], box[1] + box[3]), (255, 0, 0), 1)
                 cv2.putText(depth_color, "Window", (box[0], box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)#MAX
-                """print(box)
+                print(box)
                 box_list.append(box[0])
                 box_list.append(box[1])
                 box_list.append(box[2])
-                box_list.append(box[3])"""
-                box_list.extend(box)
+                box_list.append(box[3])
                 
             box_out.data = box_list
             window_pub.publish(box_out)  

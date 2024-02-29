@@ -47,6 +47,9 @@ def create_depth_image(radius, depth_value, image_size=(480, 640)):
     # Set the depth value for the circle
     depth_image[mask] = depth_value
 
+    #depth_image = cv2.convertScaleAbs(depth_image, alpha=0.0052)
+    #_, depth_image = cv2.threshold(depth_image, 20, 255, cv2.THRESH_BINARY)
+
     return depth_image, mask
 
 def publish_depth_image():
@@ -95,30 +98,38 @@ def publish_depth_image():
     pub4 = rospy.Publisher('/yolo_out', Float32MultiArray, queue_size=10)
 
     # Publish the depth image
-    rate = rospy.Rate(10)  # 1 Hz
+    rate = rospy.Rate(30)  # 1 Hz
     while not rospy.is_shutdown():
         depth_value = sonar_value * 1.5 # GOES WHITE AT 10
         radius = sonar_value*40 + 20
         if sonar_value >= 5:
             radius = 0
-        print(radius, depth_value, sonar_value)
+        ####print(radius, depth_value, sonar_value)
         # Create a depth image
         #####print("h_w: ", h_w)
         depth_image,mask = create_depth_image(radius, depth_value, h_w)
         # Convert the NumPy array to a ROS Image message
-        #bridge = CvBridge()
+        bridge = CvBridge()
         depth_image_ros = bridge.cv2_to_imgmsg(depth_image, encoding="passthrough")
         pub.publish(depth_image_ros)
 
         if depth_img_comp is not None:
+            #i_h = depth_img_comp.height
+            #i_w = depth_img_comp.width
+            #h_w = (i_h, i_w)
+            #print("t_hw: ", h_w)
+            #img_comp = np.ones((480, 640), dtype=np.float32) * 5#np.inf
             mid_img = bridge.imgmsg_to_cv2(depth_img_comp, desired_encoding="passthrough")
             if cam_type == 0:
                 img_comp = np.ones_like(mid_img) * np.inf#np.inf
             elif cam_type == 1:
                 img_comp = np.ones_like(mid_img) * 255#np.inf
-
+            #######print(img_comp.shape, mid_img.shape, mask.shape)
+            #mid_img = cv2.convertScaleAbs(mid_img, alpha=0.05)
+            #mid_img = cv2.medianBlur(mid_img, 61)
             img_comp[mask] = mid_img[mask]
-
+            #img_comp[:] = mid_img[:]
+            #print("OOAvg: ", np.mean(img_comp[mask]), "| Max: ", max(img_comp[mask]), "| Min: ", min(img_comp[mask]))
             if cam_type == 0:
                 img_comp = cv2.convertScaleAbs(img_comp, alpha=0.0052)
             elif cam_type == 1:
@@ -129,13 +140,14 @@ def publish_depth_image():
 
             if cam_type == 1:
                 img_comp = cv2.bitwise_not(img_comp)
-
+            #img_comp = cv2.medianBlur(img_comp, 13)
             d_avg = np.mean(img_comp[mask])
             d_max = max(img_comp[mask])
             d_min = min(img_comp[mask])
             d_ratio = .05
             if cam_type == 1:
                 d_ratio = .5#.25
+            ########print("Avg: ", np.mean(img_comp[mask]), "| Max: ", max(img_comp[mask]), "| Min: ", min(img_comp[mask]))
 
             is_glass = False
             if d_max > d_min and d_avg > d_max*d_ratio and sonar_value <= 0.9:#1.4:
@@ -143,7 +155,8 @@ def publish_depth_image():
                 cv2.putText(img_comp, "GLASS", (i_w//2, i_h//2 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1) 
                 cv2.putText(img_comp, "GLASS", (i_w//2 - 2, i_h//2 - 10 - 2), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1) 
                 is_glass = True
-
+            #print(np.mean(mid_img))
+            #img_comp = mid_img
             img_out = bridge.cv2_to_imgmsg(img_comp, encoding="passthrough")
             pub2.publish(img_out)
 

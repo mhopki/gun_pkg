@@ -69,16 +69,6 @@ class DepthToPointCloudConverter:
 
         #self.octree = pyoctree.OcTree(0.05)
 
-        # Create a Rate object to control the loop frequency
-        self.rate = rospy.Rate(10)  # 10 Hz
-
-        # Main loop
-        self.run()
-
-    def run(self):
-        while not rospy.is_shutdown():
-            self.rate.sleep()
-
     def depth_image_callback(self, depth_msg):
 
         # Convert depth image to numpy array
@@ -102,7 +92,7 @@ class DepthToPointCloudConverter:
         #Project extra shapes in a mask size
         image_size = depth_image.shape
         # Get the center coordinates
-        center = (image_size[1] // 2, image_size[0] // 2) #(x,y)
+        center = (image_size[1] // 2, image_size[0] // 2)
 
         # Create a meshgrid of coordinates
         y, x = np.ogrid[:image_size[0], :image_size[1]]
@@ -111,9 +101,9 @@ class DepthToPointCloudConverter:
         radius = 50#25
         depth_value = 580
         # Create a mask for the circle
-        ######mask = (x - center[0]) ** 2 + (y - center[1] - y_off) ** 2 <= radius ** 2
+        mask = (x - center[0]) ** 2 + (y - center[1] - y_off) ** 2 <= radius ** 2
 
-        ######pointcloud_msg_ori, points_list_ori  = self.generate_pointcloud(depth_image, depth_msg.header)
+        pointcloud_msg_ori, points_list_ori  = self.generate_pointcloud(depth_image, depth_msg.header)
 
         # Insert points from the first point cloud
         """for point in pointcloud_msg_ori:
@@ -122,23 +112,16 @@ class DepthToPointCloudConverter:
         # Set the depth value for the circle
         #depth_image[mask] = 0#depth_value
         #depth_image[:,:] = 0
-        is_conf = False
-        if (self.yolo_data != None):
-            print("confidence: ", self.yolo_data[4])
-            if self.yolo_data[4] >= 0.65:
-                is_conf = True
-        if (self.is_glass or is_conf):# or self.yolo_data != None):
-            """windows_l = self.windows
+        if (self.is_glass):
+            windows_l = self.windows
             windows = []
             i = 0
             while len(windows_l) > 0:
                 windows.append(windows_l[0:4])
                 windows_l = windows_l[4:]
-                i += 1"""
+                i += 1
 
-            windows = [self.windows[i:i+4] for i in range(0, len(self.windows), 4)]
-
-            """for box in windows:
+            for box in windows:
                 print(box, i)
                 x_size = box[2] // 2
                 y_size = box[3] // 2
@@ -158,86 +141,8 @@ class DepthToPointCloudConverter:
                 for ii in range(len(mask2)):
                     for jj in range(len(mask2[ii])):
                         if depth_image[ii][jj] < 1:#for cam1 type
-                            depth_image[ii][jj] = depth_mean# * ((ii+jj)/(len(mask2) + len(mask2[ii])))"""
+                            depth_image[ii][jj] = depth_mean# * ((ii+jj)/(len(mask2) + len(mask2[ii])))
 
-            for box in windows:
-                print(box)
-                x_size = box[2] // 2
-                y_size = box[3] // 2
-                mask2 = np.logical_and(
-                    np.abs(x - (box[0] + x_size)) <= x_size,
-                    np.abs(y - (box[1] + y_size)) <= y_size
-                )
-                mask3 = None
-
-                cols = image_size[1]
-                rows = image_size[0]
-
-                # Simplified computation of depth_mean
-                valid_depth = depth_image > 0
-                depth_mean = 0
-                #depth_mean = np.mean(depth_image[valid_depth]) * 1.1#1.2
-                if (self.is_glass):
-                    depth_mean = self.sonar_depth * 1100  # Uncomment if you want to use sonar depth
-                #depth_mean = (self.sonar_depth * 1100) * .75 + (np.mean(depth_image[valid_depth]) * 1.1) *.25
-                #depth_image[mask2] = depth_mean
-                print("sonar depth: ", depth_mean)
-                #depth_mean = -1
-                offset_x = 0
-                offset_y = 0
-
-                if len(self.yolo_data) > 0:
-                    print(self.yolo_data)
-                    mask3 = np.logical_and(
-                        np.abs(x - (self.yolo_data[0]-(self.yolo_data[2]/2) + self.yolo_data[2])) <= self.yolo_data[2],
-                        np.abs(y - (self.yolo_data[1]-(self.yolo_data[3]/2) + self.yolo_data[3])) <= self.yolo_data[3]
-                    )
-                    depth_mean_yolo = depth_image[mask3]
-                    valid_depth_yolo = depth_mean_yolo > 0
-                    depth_mean_yolo = np.mean(depth_mean_yolo[valid_depth_yolo])
-                    print("yolo depth: ", depth_mean_yolo)
-                    depth_mean = depth_mean_yolo
-
-                    offset_x = -center[0] + self.yolo_data[0]
-                    offset_y = -center[1] + self.yolo_data[1]
-
-                cols2, rows2 = mask2.shape
-
-                offset_angle = ((-offset_y)/112) * 90
-
-                tilt_angle_radians = np.radians(offset_angle)
-
-                # Calculate half-widths of the window along the tilted axis
-                half_width_left = (rows2 / 2) * 4 * np.sin(tilt_angle_radians)
-                half_width_right = (rows2 / 2) * 4 * np.sin(tilt_angle_radians)
-
-                # Calculate the depths at the left and right corners
-                depth_left = depth_mean - (half_width_left)
-                depth_right = depth_mean + (half_width_right)
-
-                #"""
-                # Define minimum and maximum depths
-                min_depth = depth_left#depth_mean - 1000 # Replace with your desired minimum depth
-                max_depth = depth_right#depth_mean + 1000 # Replace with your desired maximum depth
-                print("offset_angle: ", offset_angle, offset_x, offset_y)
-                #print("depth: ", depth_left, depth_right, depth_mean, tilt_angle_radians, np.degrees(tilt_angle_radians), half_width_left, half_width_right)
-
-                # Create a linear gradient across the x-axis
-                depth_gradient = np.linspace(min_depth, max_depth, cols2)[:, np.newaxis]
-
-                # Create a 2D array with the linear gradient repeated for each row
-                depth_mask = np.tile(depth_gradient, (1, rows2))
-                print(depth_mask.shape)
-                #depth_mask = depth_gradient
-
-                #depth_mask = depth_mask.flatten()[:len(depth_image[mask2].flatten())]
-                #print(len(depth_mask.flatten()), len(mask2.flatten()))
-
-                # Use boolean indexing for efficient assignment
-                depth_image[mask2] = depth_mask[mask2]#"""
-
-        self.yolo_data = None
-        
         y_off = 0
         radius = 95#25
         depth_value = 580
@@ -255,7 +160,7 @@ class DepthToPointCloudConverter:
         #marker_msg = self.generate_colored_markers(points_list, depth_msg.header)
 
         # Publish the PointCloud2 message
-        #self.pointcloud_pub.publish(pointcloud_msg_ori)
+        self.pointcloud_pub.publish(pointcloud_msg_ori)
         self.pointcloud_pub_sonar.publish(pointcloud_msg)
         self.image_pub.publish(image_out)
         if False:
@@ -267,7 +172,7 @@ class DepthToPointCloudConverter:
                 print(self.rate_up)
                 self.rate_up += 1
 
-        #####rows, cols = depth_image.shape
+        rows, cols = depth_image.shape
         """for i in range(rows):
             for j in range(cols):
                 if pointcloud_msg_ori[i,j] != pointcloud_msg[i,j]:
@@ -326,7 +231,7 @@ class DepthToPointCloudConverter:
             PointField(name="x", offset=0, datatype=PointField.FLOAT32, count=1),
             PointField(name="y", offset=4, datatype=PointField.FLOAT32, count=1),
             PointField(name="z", offset=8, datatype=PointField.FLOAT32, count=1),
-            #PointField(name="rgb", offset=12, datatype=PointField.UINT32, count=1),  # Color as UINT32
+            PointField(name="rgb", offset=12, datatype=PointField.UINT32, count=1),  # Color as UINT32
         ]
 
         #print(header)
@@ -336,48 +241,24 @@ class DepthToPointCloudConverter:
 
     def convert_depth_to_points(self, depth_image, header):
         rows, cols = depth_image.shape
+        points = []
 
-        # Create arrays for u and v coordinates
-        u_coords, v_coords = np.meshgrid(range(cols), range(rows), indexing='ij')
+        for v in range(rows):
+            for u in range(cols):
+                depth_value = depth_image[v, u] / 1000.0  # convert depth to meters
+                if depth_value > 0.0:  # check if depth is valid (non-zero)
+                    x = (u - self.cx) * depth_value * self.inv_fx
+                    y = (v - self.cy) * depth_value * self.inv_fy
+                    z = depth_value
+                    r = 59
+                    g = 0
+                    b = 255
 
-        # Transpose u_coords for correct broadcasting
-        u_coords = u_coords.T
-        v_coords = v_coords.T
+                    rgb = (int(r) << 16) | (int(g) << 8) | int(b)
 
-        # Convert depth to meters
-        depth_values = depth_image / 1000.0
-
-        # Mask for valid depth values
-        valid_depth_mask = depth_values > 0.0
-
-        # Calculate x, y, z coordinates
-        x = (u_coords - self.cx) * depth_values * self.inv_fx
-        y = (v_coords - self.cy) * depth_values * self.inv_fy
-        z = depth_values
-
-        # Create RGB array
-        #r = 59
-        #g = 0
-        #b = 255
-        #rgb = (r << 16) | (g << 8) | b
-
-        # Mask out invalid points
-        x = np.where(valid_depth_mask, x, 0.0)
-        y = np.where(valid_depth_mask, y, 0.0)
-        z = np.where(valid_depth_mask, z, 0.0)
-
-        # Stack x, y, z, and rgb to create the points array
-        #points = np.stack((x, y, z, np.full_like(x, rgb)), axis=-1)
-        points = np.stack((x, y, z), axis=-1)
-
-        points = points.astype(np.float32)
-
-        # Flatten the array and remove invalid points
-        points = points[valid_depth_mask]
-
-        #print(points.shape)
-        #print(points[0])
-        #print(points[1])
+                    # Append points as (x, y, z) tuple
+                    point = (x, y, z, rgb)
+                    points.append(point)
 
         return points
 
@@ -411,6 +292,6 @@ class DepthToPointCloudConverter:
 if __name__ == '__main__':
     try:
         converter = DepthToPointCloudConverter()
-        #rospy.spin()
+        rospy.spin()
     except rospy.ROSInterruptException:
         pass
