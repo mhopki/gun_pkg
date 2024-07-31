@@ -86,7 +86,7 @@ def publish_depth_image():
         i_h = 172 #depth_image_ros.height
         i_w = 224 #depth_image_ros.width
     h_w = (i_h, i_w)
-    print("og_hw: ", h_w)
+    ###print("og_hw: ", h_w)
 
     # Create a publisher for the depth image
     pub = rospy.Publisher('/sonar_depth_image', Image, queue_size=1)
@@ -101,7 +101,7 @@ def publish_depth_image():
         radius = sonar_value*40 + 20
         if sonar_value >= 5:
             radius = 0
-        print(radius, depth_value, sonar_value)
+        ###print(radius, depth_value, sonar_value)
         # Create a depth image
         #####print("h_w: ", h_w)
         depth_image,mask = create_depth_image(radius, depth_value, h_w)
@@ -139,7 +139,7 @@ def publish_depth_image():
 
             is_glass = False
             if d_max > d_min and d_avg > d_max*d_ratio and sonar_value <= 0.9:#1.4:
-                print("GLASS")
+                ###print("GLASS")
                 cv2.putText(img_comp, "GLASS", (i_w//2, i_h//2 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1) 
                 cv2.putText(img_comp, "GLASS", (i_w//2 - 2, i_h//2 - 10 - 2), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1) 
                 is_glass = True
@@ -156,7 +156,7 @@ def publish_depth_image():
                 yolo_data = [yolo_bbox.center.x, yolo_bbox.center.y, yolo_bbox.size_x, yolo_bbox.size_y, yolo_results.score]
                 yolo_out.data = yolo_data
             pub4.publish(yolo_out)
-        rate.sleep()
+        #rate.sleep()
 
 if __name__ == '__main__':
     try:

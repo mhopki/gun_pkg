@@ -145,7 +145,7 @@ include_directories(
 
 #link_directories(/home/malakhi/catkin_ws/devel/lib)
 
-add_executable(point_cloud_fusion src/point_cloud_fusion.cpp)
+add_executable(point_cloud_fusion src/misc/point_cloud_fusion.cpp)
 target_link_libraries(point_cloud_fusion
     ${catkin_LIBRARIES}
     ${OCTOMAP_LIBRARIES}

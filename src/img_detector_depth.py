@@ -100,7 +100,7 @@ def image_callback(msg):
                 #break
     
     cascade = 1
-    win_tol = depth_image.shape[1]*0.0625/2 #normal: depth_image.shape[1]*0.0625/2 #big_window tolerance 20 in 640x480
+    win_tol = depth_image.shape[1]*0.0625/20 #normal: depth_image.shape[1]*0.0625/2 #big_window tolerance 20 in 640x480
     max_windows = []
     origin_box = sum_box.copy()
     while cascade > 0 and len(sum_box) > 1:
