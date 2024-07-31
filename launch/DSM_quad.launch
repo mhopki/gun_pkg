@@ -1,0 +1,5 @@
+<launch>
+    <node pkg="gun_pkg" type="V26_project_image.py" name="v26_project" output="screen"/>
+    <node pkg="gun_pkg" type="img_detector_depth.py" name="img_det" output="screen"/>
+    <node pkg="gun_pkg" type="sonar_to_depth_image.py" name="sonar_depth" output="screen"/>
+</launch>

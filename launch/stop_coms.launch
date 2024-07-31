@@ -1,0 +1,6 @@
+<launch>
+    <node pkg="gun_pkg" type="V26_project_image.py" name="v26_project" output="screen"/>
+    <node pkg="gun_pkg" type="img_detector_depth.py" name="img_det" output="screen"/>
+    <node pkg="gun_pkg" type="vicon_eye.py" name="vicon_eye" output="screen"/>
+    <node pkg="gun_pkg" type="V26_stop_detect.py" name="v26_stop" output="screen"/>
+</launch>
