@@ -23,9 +23,10 @@ class BagToImage:
         self.bridge = CvBridge()
 
         # Subscriber for depth image and camera info
-        #rospy.Subscriber('/depth_gray_image', Image, self.image_callback)
+        rospy.Subscriber('/depth_gray_image', Image, self.image_callback)
         #rospy.Subscriber('/yolov7/yolov7/visualization', Image, self.image_callback)
-        rospy.Subscriber('/camera/image_raw', Image, self.image_callback)
+        #rospy.Subscriber('/camera/image_raw', Image, self.image_callback)#
+        #rospy.Subscriber('/royale_cam_royale_camera/depth_image_0', Image, self.image_callback)
 
         # Create a Rate object to control the loop frequency
         self.rate = rospy.Rate(10)  # 10 Hz
@@ -40,7 +41,7 @@ class BagToImage:
     def image_callback(self, img_msg):
 
         # Convert depth image to numpy array
-        image = self.bridge.imgmsg_to_cv2(img_msg, desired_encoding="bgr8")
+        image = self.bridge.imgmsg_to_cv2(img_msg, desired_encoding="bgr8")#bgr8 dragonfly
 
         #SAVE IMAGE TO FILE
         #"""

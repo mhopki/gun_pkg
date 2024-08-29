@@ -51,14 +51,29 @@ def image_callback(msg):
     if cam_type == 0:
         depth_gray = cv2.convertScaleAbs(depth_image, alpha=0.0052)
     elif cam_type == 1:
-        depth_gray = cv2.convertScaleAbs(depth_image, alpha=0.99) #0.03 # Adjust alpha as needed, makes distance gap bigger
+        depth_gray = depth_image
+        # Assuming 'image_32FC1' is your input image in 32FC1 format
+        image_32FC1 = depth_gray.copy()#np.random.rand(100, 100).astype(np.float32)  # Example image
+
+        # Normalize to range [0, 1] (if not already normalized)
+        image_normalized = cv2.normalize(image_32FC1, None, 0, 1, cv2.NORM_MINMAX)
+
+        # Scale to range [0, 255]
+        image_scaled = image_normalized * 255
+
+        # Convert to 8-bit unsigned integer
+        image_mono8 = np.clip(image_scaled, 0, 255).astype(np.uint8)
+        depth_gray = image_mono8
+        #depth_gray = np.uint8(depth_gray)
+        depth_gray = cv2.convertScaleAbs(depth_gray, alpha=0.99)
+        ###depth_gray = cv2.convertScaleAbs(depth_image, alpha=0.99) #0.03 # Adjust alpha as needed, makes distance gap bigger
         depth_gray = cv2.GaussianBlur(depth_gray, (15, 15), 0) #((33, 33), 0)
         #depth_gray = cv2.medianBlur(depth_gray, 31) #61
         #depth_gray = cv2.bitwise_not(depth_gray)
 
     if cam_fish == 1:
         #TOF FISHEYE
-        radius = 95
+        radius = 240#95
         mask = (x - depth_image.shape[1] // 2) ** 2 + (y - depth_image.shape[0] // 2) ** 2 >= radius ** 2
         dp = 0 if cam_type == 0 else 255
         depth_gray[mask] = dp
@@ -73,8 +88,10 @@ def image_callback(msg):
     # Publish the thresholded image
     if cam_type == 1:
         thresholded = cv2.bitwise_not(thresholded)
-    thresholded_msg = bridge.cv2_to_imgmsg(thresholded, encoding="mono8")
+    thresholded_msg = bridge.cv2_to_imgmsg(thresholded, encoding="passthrough") #"mono8"
     thresholded_pub.publish(thresholded_msg)
+
+    #"""
 
     # Find contours in the thresholded image
     #_, contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -156,10 +173,10 @@ def image_callback(msg):
                 cv2.rectangle(depth_color, (box[0], box[1]), (box[0] + box[2], box[1] + box[3]), (255, 0, 0), 1)
                 cv2.putText(depth_color, "Window", (box[0], box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1) #MAX  
                 #print(box) 
-                """box_list.append(box[0])
-                box_list.append(box[1])
-                box_list.append(box[2])
-                box_list.append(box[3])"""
+                #box_list.append(box[0])
+                #box_list.append(box[1])
+                #box_list.append(box[2])
+                #box_list.append(box[3])
                 box_list.extend(box)
                 
             box_out.data = box_list
@@ -171,11 +188,11 @@ def image_callback(msg):
             for box in sum_box:
                 cv2.rectangle(depth_color, (box[0], box[1]), (box[0] + box[2], box[1] + box[3]), (255, 0, 0), 1)
                 cv2.putText(depth_color, "Window", (box[0], box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)#MAX
-                """print(box)
-                box_list.append(box[0])
-                box_list.append(box[1])
-                box_list.append(box[2])
-                box_list.append(box[3])"""
+                #print(box)
+                #box_list.append(box[0])
+                #box_list.append(box[1])
+                #box_list.append(box[2])
+                #box_list.append(box[3])
                 box_list.extend(box)
                 
             box_out.data = box_list
@@ -184,9 +201,10 @@ def image_callback(msg):
             ##print("No Window")
             x = 0
 
+    #"""
     # Publish the depth_gray image
 
-    depth_gray_msg = bridge.cv2_to_imgmsg(depth_gray, encoding="mono8")
+    depth_gray_msg = bridge.cv2_to_imgmsg(depth_gray, encoding="mono8") #"mono8"
     depth_gray_pub.publish(depth_gray_msg)
 
     if (False):
@@ -202,7 +220,7 @@ def image_callback(msg):
         #"""
 
     # Publish the depth_color image
-    depth_color_msg = bridge.cv2_to_imgmsg(depth_color, encoding="bgr8")
+    depth_color_msg = bridge.cv2_to_imgmsg(depth_color, encoding="bgr8")#bgr8
     depth_color_pub.publish(depth_color_msg)
 
     # Display the annotated color image
@@ -224,7 +242,7 @@ def main():
     if cam_type == 0:
         rospy.Subscriber('/camera/depth/image_rect_raw', Image, image_callback)
     elif cam_type == 1:
-        rospy.Subscriber('/dragonfly26/tof/voxl_depth_image_raw', Image, image_callback)
+        rospy.Subscriber('/royale_cam_royale_camera/depth_image_0', Image, image_callback)#'/dragonfly26/tof/voxl_depth_image_raw'
     #rospy.spin()
 
 if __name__ == '__main__':

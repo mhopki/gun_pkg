@@ -28,8 +28,8 @@ class DepthToPointCloudConverter:
         self.bridge = CvBridge()
 
         # Subscriber for depth image and camera info
-        rospy.Subscriber('/dragonfly26/tof/voxl_depth_image_raw', Image, self.depth_image_callback)
-        rospy.Subscriber('/dragonfly26/tof/camera_info', CameraInfo, self.camera_info_callback)
+        rospy.Subscriber('/royale_cam_royale_camera/depth_image_0', Image, self.depth_image_callback) #'/dragonfly26/tof/voxl_depth_image_raw'
+        rospy.Subscriber('/royale_cam_royale_camera/camera_info', CameraInfo, self.camera_info_callback) #'/dragonfly26/tof/camera_info'
         rospy.Subscriber('/windows', Float32MultiArray, self.window_callback)
         rospy.Subscriber('/is_glass', Bool, self.glass_callback)
         rospy.Subscriber('/sonar_topic', Range, self.sonar_callback)
@@ -247,7 +247,7 @@ class DepthToPointCloudConverter:
         self.yolo_data = None
         
         y_off = 0
-        radius = 95#25
+        radius = 240#95#25
         depth_value = 580
         # Create a mask for the circle
         maskOuter = (x - center[0]) ** 2 + (y - center[1] - y_off) ** 2 >= radius ** 2
