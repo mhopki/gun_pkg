@@ -52,15 +52,15 @@ def create_depth_image(radius, depth_value, image_size=(480, 640)):
 def publish_depth_image():
     # Initialize ROS node
     rospy.init_node('depth_image_publisher', anonymous=True)
-    sub_sonar = rospy.Subscriber('/sonar_topic', Range, sonar_callback)
+    sub_sonar = rospy.Subscriber('/sonar_topic', Range, sonar_callback, queue_size=1)
     global cam_type
 
     if cam_type == 0:
-        sub_depth = rospy.Subscriber('/camera/depth/image_rect_raw', Image, depth_callback)
+        sub_depth = rospy.Subscriber('/camera/depth/image_rect_raw', Image, depth_callback, queue_size=1)
     elif cam_type == 1:
-        sub_depth = rospy.Subscriber('/dragonfly26/tof/voxl_depth_image_raw', Image, depth_callback)
+        sub_depth = rospy.Subscriber('/dragonfly26/tof/voxl_depth_image_raw', Image, depth_callback, queue_size=1)
 
-    sub_yolo = rospy.Subscriber('/yolov7/yolov7', Detection2DArray, yolo_callback)
+    sub_yolo = rospy.Subscriber('/yolov7/yolov7', Detection2DArray, yolo_callback, queue_size=1)
 
     global depth_img_comp
     depth_img_comp = None
@@ -91,12 +91,13 @@ def publish_depth_image():
     # Create a publisher for the depth image
     pub = rospy.Publisher('/sonar_depth_image', Image, queue_size=1)
     pub2 = rospy.Publisher('/comp_image', Image, queue_size=1)
-    pub3 = rospy.Publisher('/is_glass', Bool, queue_size=10)
-    pub4 = rospy.Publisher('/yolo_out', Float32MultiArray, queue_size=10)
+    pub3 = rospy.Publisher('/is_glass', Bool, queue_size=1)
+    pub4 = rospy.Publisher('/yolo_out', Float32MultiArray, queue_size=1)
 
     # Publish the depth image
     rate = rospy.Rate(10)  # 1 Hz
     while not rospy.is_shutdown():
+        """
         depth_value = sonar_value * 1.5 # GOES WHITE AT 10
         radius = sonar_value*40 + 20
         if sonar_value >= 5:
@@ -150,7 +151,8 @@ def publish_depth_image():
             bool_msg = Bool()
             bool_msg.data = is_glass 
             pub3.publish(bool_msg)
-            
+            """
+        if (True):
             yolo_out = Float32MultiArray()
             if (yolo_bbox != None and yolo_results != None):
                 yolo_data = [yolo_bbox.center.x, yolo_bbox.center.y, yolo_bbox.size_x, yolo_bbox.size_y, yolo_results.score]

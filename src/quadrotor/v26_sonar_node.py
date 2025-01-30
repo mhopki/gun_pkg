@@ -12,7 +12,7 @@ UART_J12 = 5
 BAUD_RATE = 9600#57600
 
 def talker():
-    serialAPI = serial.Serial('/dev/ttyUSB0', 57600) 
+    serialAPI = serial.Serial('/dev/ttyHS2', BAUD_RATE) 
     pub = rospy.Publisher('sonar_topic', Range, queue_size=10)
     rospy.init_node('sonar_node', anonymous=True)
     rate = rospy.Rate(15)

@@ -2,5 +2,11 @@
     <node pkg="gun_pkg" type="V26_project_image.py" name="v26_project" output="screen"/>
     <node pkg="gun_pkg" type="img_detector_depth.py" name="img_det" output="screen"/>
     <node pkg="gun_pkg" type="vicon_eye.py" name="vicon_eye" output="screen"/>
-    <node pkg="gun_pkg" type="V26_stop_detect.py" name="v26_stop" output="screen"/>
+    <!--node pkg="gun_pkg" type="V26_stop_detect.py" name="v26_stop" output="screen"/-->
+    <!--node pkg="gun_pkg" type="stop_enforcer.py" name="stop_enforcer" output="screen"/-->
+    <node pkg="gun_pkg" type="opencv_ddn_node.py" name="yolo_viz" output="screen" launch-prefix="nice -n 1"/>
+    <node pkg="gun_pkg" type="sonar_to_depth_image.py" name="son_yol_pub" output="screen"/>
+
+    <!--include file="$(find yolov7_ros)/launch/yolov7-quadStarling.launch"/-->
+
 </launch>

@@ -10,7 +10,7 @@ import struct
 from visualization_msgs.msg import MarkerArray, Marker
 from std_msgs.msg import Float32MultiArray
 from std_msgs.msg import Bool
-import pyoctree
+# import pyoctree
 import rospy
 from octomap_msgs.msg import Octomap
 from octomap_msgs.srv import BoundingBoxQuery
@@ -32,10 +32,10 @@ class DepthToPointCloudConverter:
         self.bridge = CvBridge()
 
         # Subscriber for depth image and camera info
-        rospy.Subscriber('/dragonfly26/tof/voxl_depth_image_raw', Image, self.depth_image_callback)
+        rospy.Subscriber('/royale_cam_royale_camera/depth_image_0', Image, self.depth_image_callback, queue_size=1)
         rospy.Subscriber('/sonar_topic', Range, self.sonar_callback)
         rospy.Subscriber('/yolov7/yolov7', Detection2DArray, self.yolo_callback)
-        rospy.Subscriber('/dragonfly26/vio/odometry', Odometry, self.odom_callback)
+        rospy.Subscriber('/vicon/Starling2/odom', Odometry, self.odom_callback)
 
         # Publisher for PointCloud2
         self.pointcloud_pub = rospy.Publisher('/dragonfly26/tof/reproject', PointCloud2, queue_size=10)
@@ -90,8 +90,8 @@ class DepthToPointCloudConverter:
 
     def run(self):
         while not rospy.is_shutdown():
-            print(self.sonar_depth, self.sonar_streak)
-            print(self.yolo_depth, self.yolo_streak)
+            #print(self.sonar_depth, self.sonar_streak)
+            #print(self.yolo_depth, self.yolo_streak)
             #print(self.yolo_data)
 
             stop_trigger = False
@@ -156,9 +156,10 @@ class DepthToPointCloudConverter:
             self.rate.sleep()
 
     def depth_image_callback(self, depth_msg):
-
+        #print("RECRECREC")
         # Convert depth image to numpy array
-        depth_image = self.bridge.imgmsg_to_cv2(depth_msg, desired_encoding="passthrough")
+        #depth_image = self.bridge.imgmsg_to_cv2(depth_msg, desired_encoding="passthrough")
+        depth_image = np.frombuffer(depth_msg.data, dtype=np.float32).reshape(depth_msg.height, depth_msg.width)
 
         #depth_image = cv2.medianBlur(depth_image, 5)
 
@@ -196,7 +197,7 @@ class DepthToPointCloudConverter:
                 depth_mean_yolo = depth_image[mask3]
                 valid_depth_yolo = depth_mean_yolo > 0
                 depth_mean_yolo = np.mean(depth_mean_yolo[valid_depth_yolo])
-                self.yolo_depth = depth_mean_yolo / 1000
+                self.yolo_depth = depth_mean_yolo # / 1000
                 #print("yolo depth: ", depth_mean_yolo)
                 depth_mean = depth_mean_yolo
 
@@ -215,12 +216,13 @@ class DepthToPointCloudConverter:
     def sonar_callback(self, data):
         # Extract camera parameters
         #print("son call", data.range)
-        self.sonar_depth = data.range
-        self.sonar_data = [data.range, rospy.Time.now().to_sec()]
+        self.sonar_depth = data.range * 10
+        self.sonar_data = [data.range * 10, rospy.Time.now().to_sec()]
 
     def yolo_callback(self, value):
         #global yolo_bbox, yolo_results
         max_size = 0
+        #print("RECYOLOYOLO")
         max_ind = 0
         for i in range(len(value.detections)):
             det = value.detections[i]

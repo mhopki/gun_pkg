@@ -10,7 +10,7 @@ import struct
 from visualization_msgs.msg import MarkerArray, Marker
 from std_msgs.msg import Float32MultiArray
 from std_msgs.msg import Bool
-import pyoctree
+# import pyoctree
 import rospy
 from octomap_msgs.msg import Octomap
 from octomap_msgs.srv import BoundingBoxQuery

@@ -6,6 +6,7 @@ from cv_bridge import CvBridge
 import cv2
 import numpy as np
 from std_msgs.msg import Float32MultiArray
+import ros_numpy
 
 global cam_type, cam_fish
 cam_type = 1
@@ -16,7 +17,8 @@ def image_callback(msg):
     global cam_type
 
     # Convert the depth image to a numpy array
-    depth_image = bridge.imgmsg_to_cv2(msg, desired_encoding="passthrough")
+    depth_image = np.frombuffer(msg.data, dtype=np.float32).reshape(msg.height, msg.width)
+    #depth_image = bridge.imgmsg_to_cv2(msg, desired_encoding="passthrough")
     #new = np.ones_like(depth_image) * 277
     #0 = depth-passive, 1 = depth-active
     #cam_type = 1
@@ -91,7 +93,7 @@ def image_callback(msg):
     thresholded_msg = bridge.cv2_to_imgmsg(thresholded, encoding="passthrough") #"mono8"
     thresholded_pub.publish(thresholded_msg)
 
-    #"""
+    #
 
     # Find contours in the thresholded image
     #_, contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -201,15 +203,17 @@ def image_callback(msg):
             ##print("No Window")
             x = 0
 
-    #"""
+    
     # Publish the depth_gray image
 
-    depth_gray_msg = bridge.cv2_to_imgmsg(depth_gray, encoding="mono8") #"mono8"
+    #depth_gray_msg = np.frombuffer(msg.data, dtype=np.uint8).reshape(msg.height, msg.width, -1)
+    depth_gray = cv2.cvtColor(depth_gray,cv2.COLOR_GRAY2RGB) #np.tile(depth_gray, 3,)
+    depth_gray_msg = ros_numpy.image.numpy_to_image(depth_gray, "bgr8") #bridge.cv2_to_imgmsg(depth_gray, encoding="mono8") #"mono8"
     depth_gray_pub.publish(depth_gray_msg)
 
     if (False):
         #SAVE IMAGE TO FILE
-        #"""
+        """
         save_path = '/home/malakhi/Pictures/CNN/Bagfiles/3'
         # Save the image as JPEG
         timestamp_str = rospy.Time.now().to_sec()  # Convert timestamp to seconds
@@ -217,15 +221,15 @@ def image_callback(msg):
         cv2.imwrite(image_filename, depth_gray)
         rospy.loginfo("Image saved as %s", image_filename)
         print("saved: ", image_filename)
-        #"""
+        """
 
     # Publish the depth_color image
-    depth_color_msg = bridge.cv2_to_imgmsg(depth_color, encoding="bgr8")#bgr8
-    depth_color_pub.publish(depth_color_msg)
+    #depth_color_msg = bridge.cv2_to_imgmsg(depth_color, encoding="bgr8")#bgr8
+    #depth_color_pub.publish(depth_color_msg)
 
     # Display the annotated color image
-    cv2.imshow("Square Detection", depth_color)
-    cv2.waitKey(3)
+    #cv2.imshow("Square Detection", depth_color)
+    #cv2.waitKey(3)
 
 def main():
     rospy.init_node('square_detection_node')
@@ -237,12 +241,12 @@ def main():
     depth_color_pub = rospy.Publisher('depth_color_image', Image, queue_size=1)
     thresholded_pub = rospy.Publisher('thresholded_image', Image, queue_size=1)
     depth_image_pub = rospy.Publisher('depth_image_pub', Image, queue_size=1)
-    window_pub = rospy.Publisher('windows', Float32MultiArray, queue_size=10)
+    window_pub = rospy.Publisher('windows', Float32MultiArray, queue_size=1)
 
     if cam_type == 0:
-        rospy.Subscriber('/camera/depth/image_rect_raw', Image, image_callback)
+        rospy.Subscriber('/camera/depth/image_rect_raw', Image, image_callback, queue_size=1)
     elif cam_type == 1:
-        rospy.Subscriber('/royale_cam_royale_camera/depth_image_0', Image, image_callback)#'/dragonfly26/tof/voxl_depth_image_raw'
+        rospy.Subscriber('/royale_cam_royale_camera/depth_image_0', Image, image_callback, queue_size=1)#'/dragonfly26/tof/voxl_depth_image_raw'
     #rospy.spin()
 
 if __name__ == '__main__':

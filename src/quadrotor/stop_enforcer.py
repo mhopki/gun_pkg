@@ -18,16 +18,16 @@ class FlightControl:
     rospy.init_node('mav_example', anonymous=True)
 
     # Creating MAV objects
-    self.mav_namespace = 'dragonfly26'#quadrotor
+    self.mav_namespace = 'quadrotor'#quadrotor
     self.mav_id = 1
-    self.mav_obj = KrMavInterface('dragonfly26', '')
+    self.mav_obj = KrMavInterface('quadrotor', '')
 
     rospy.Subscriber('/quad_coms', Int32, self.command_callback)
-    rospy.Subscriber('/vicon/dragonfly26/odom', Odometry, self.odom_callback)
+    # rospy.Subscriber('/vicon/dragonfly26/odom', Odometry, self.odom_callback)
     self.command_pub = rospy.Publisher('/quad_coms', Int32, queue_size=10)
 
     self.stopped = False
-    self.vicon_odom = None
+    # self.vicon_odom = None
 
     # Create a Rate object to control the loop frequency
     self.rate = rospy.Rate(30)  # 10 Hz
@@ -67,8 +67,8 @@ class FlightControl:
       #self.mav_obj.send_wp_block(stop_pose.x + stop_pose_off.x/100, stop_pose.y + stop_pose_off.y/100, stop_pose.z + stop_pose_off.z/100, 0.0, vel=des_vel, acc=des_acc)
       self.mav_obj.ehover()
 
-  def odom_callback(self, odom):
-    self.vicon_odom = odom
+  # def odom_callback(self, odom):
+  #   self.vicon_odom = odom
 
 
 if __name__ == '__main__':

@@ -10,13 +10,13 @@ import struct
 from visualization_msgs.msg import MarkerArray, Marker
 from std_msgs.msg import Float32MultiArray
 from std_msgs.msg import Bool
-import pyoctree
+# import pyoctree
 import rospy
 from octomap_msgs.msg import Octomap
 from octomap_msgs.srv import BoundingBoxQuery
 from octomap_msgs.srv import GetOctomap
 from sensor_msgs.msg import Range
-
+import ros_numpy
 
 global cam_type, cam_fish
 cam_type = 1
@@ -28,23 +28,23 @@ class DepthToPointCloudConverter:
         self.bridge = CvBridge()
 
         # Subscriber for depth image and camera info
-        rospy.Subscriber('/royale_cam_royale_camera/depth_image_0', Image, self.depth_image_callback) #'/dragonfly26/tof/voxl_depth_image_raw'
-        rospy.Subscriber('/royale_cam_royale_camera/camera_info', CameraInfo, self.camera_info_callback) #'/dragonfly26/tof/camera_info'
-        rospy.Subscriber('/windows', Float32MultiArray, self.window_callback)
-        rospy.Subscriber('/is_glass', Bool, self.glass_callback)
-        rospy.Subscriber('/sonar_topic', Range, self.sonar_callback)
-        rospy.Subscriber('/yolo_out', Float32MultiArray, self.yolo_callback)
+        rospy.Subscriber('/royale_cam_royale_camera/depth_image_0', Image, self.depth_image_callback, queue_size=1) #'/dragonfly26/tof/voxl_depth_image_raw'
+        rospy.Subscriber('/royale_cam_royale_camera/camera_info', CameraInfo, self.camera_info_callback, queue_size=1) #'/dragonfly26/tof/camera_info'
+        rospy.Subscriber('/windows', Float32MultiArray, self.window_callback, queue_size=1)
+        rospy.Subscriber('/is_glass', Bool, self.glass_callback, queue_size=1)
+        rospy.Subscriber('/sonar_topic', Range, self.sonar_callback, queue_size=1)
+        rospy.Subscriber('/yolo_out', Float32MultiArray, self.yolo_callback, queue_size=1)
 
         # Publisher for PointCloud2
-        self.pointcloud_pub = rospy.Publisher('/dragonfly26/tof/reproject', PointCloud2, queue_size=10)
+        self.pointcloud_pub = rospy.Publisher('/dragonfly26/tof/reproject', PointCloud2, queue_size=1)
 
-        self.pointcloud_pub_sonar = rospy.Publisher('/dragonfly26/tof/reproject_sonar', PointCloud2, queue_size=10)
+        self.pointcloud_pub_sonar = rospy.Publisher('/dragonfly26/tof/reproject_sonar', PointCloud2, queue_size=1)
 
         # Publisher for Image
         self.image_pub = rospy.Publisher('/dragonfly26/tof/voxl_alter', Image, queue_size=1)
 
         # Publisher for Image
-        self.marker_pub = rospy.Publisher('/dragonfly26/tof/voxl_marker', MarkerArray, queue_size=10)
+        self.marker_pub = rospy.Publisher('/dragonfly26/tof/voxl_marker', MarkerArray, queue_size=1)
 
         # Camera info variables
         self.fx = 0.0
@@ -82,8 +82,15 @@ class DepthToPointCloudConverter:
     def depth_image_callback(self, depth_msg):
 
         # Convert depth image to numpy array
-        depth_image = self.bridge.imgmsg_to_cv2(depth_msg, desired_encoding="passthrough")
+        #depth_image = self.bridge.imgmsg_to_cv2(depth_msg, desired_encoding="passthrough")
+        depth_image = np.frombuffer(depth_msg.data, dtype=np.float32).reshape(depth_msg.height, depth_msg.width)
 
+        image_32FC1 = depth_image
+        image_normalized = cv2.normalize(image_32FC1, None, 0, 1, cv2.NORM_MINMAX)
+        image_scaled = image_normalized * 255
+        image_mono8 = np.clip(image_scaled, 0, 255).astype(np.uint8)
+        depth_image = image_mono8
+         
         #SAVE IMAGE TO FILE
         """
         save_path = '/home/malakhi/Pictures/CNN/Bagfiles/1'
@@ -110,6 +117,8 @@ class DepthToPointCloudConverter:
         y_off = 0
         radius = 50#25
         depth_value = 580
+
+        altered = 0
         # Create a mask for the circle
         ######mask = (x - center[0]) ** 2 + (y - center[1] - y_off) ** 2 <= radius ** 2
 
@@ -123,11 +132,13 @@ class DepthToPointCloudConverter:
         #depth_image[mask] = 0#depth_value
         #depth_image[:,:] = 0
         is_conf = False
+        self.is_glass = False
         if (self.yolo_data != None):
-            ###print("confidence: ", self.yolo_data[4])
-            if self.yolo_data[4] >= 0.55:#0.65:
-                is_conf = True
-        if (self.is_glass or is_conf):# or self.yolo_data != None):
+            if (len(self.yolo_data) > 0):
+                ###print("confidence: ", self.yolo_data[4])
+                if self.yolo_data[4] >= 0.55:#0.65:
+                    is_conf = True
+        if (self.is_glass or is_conf): # or self.yolo_data != None):
             """windows_l = self.windows
             windows = []
             i = 0
@@ -178,7 +189,8 @@ class DepthToPointCloudConverter:
                 depth_mean = 0
                 #depth_mean = np.mean(depth_image[valid_depth]) * 1.1#1.2
                 if (self.is_glass):
-                    depth_mean = self.sonar_depth * 1100  # Uncomment if you want to use sonar depth
+                    xxx = 0
+                    #depth_mean = self.sonar_depth * 1100  # Uncomment if you want to use sonar depth
                 #depth_mean = (self.sonar_depth * 1100) * .75 + (np.mean(depth_image[valid_depth]) * 1.1) *.25
                 #depth_image[mask2] = depth_mean
                 ###print("sonar depth: ", depth_mean)
@@ -201,48 +213,61 @@ class DepthToPointCloudConverter:
                     offset_x = -center[0] + self.yolo_data[0]
                     offset_y = -center[1] + self.yolo_data[1]
 
-                cols2, rows2 = mask2.shape
+                    if mask3 is not None:
+                        mask_inside = np.logical_and(mask3, mask2)
+                        is_mask3_inside_mask2 = np.all(mask3 == mask_inside)
+                        
+                        if is_mask3_inside_mask2:
+                            xxx = 0 #print("mask3 is completely inside mask2")
+                            print("depth_mean: ", depth_mean)
+                        else:
+                            depth_mean = -10
 
-                offset_angle = ((-offset_y)/112) * 90
+                if (depth_mean > -10 and depth_mean < 65):
+                    cols2, rows2 = mask2.shape
 
-                tilt_angle_radians = np.radians(offset_angle)
+                    offset_angle = ((-offset_y)/112) * 90
 
-                # Calculate half-widths of the window along the tilted axis
-                half_width_left = (rows2 / 2) * 4 * np.sin(tilt_angle_radians)
-                half_width_right = (rows2 / 2) * 4 * np.sin(tilt_angle_radians)
+                    tilt_angle_radians = np.radians(offset_angle)
 
-                # Calculate the depths at the left and right corners
-                depth_left = depth_mean - (half_width_left)
-                depth_right = depth_mean + (half_width_right)
+                    # Calculate half-widths of the window along the tilted axis
+                    half_width_left = (rows2 / 2) * 4 * np.sin(tilt_angle_radians)
+                    half_width_right = (rows2 / 2) * 4 * np.sin(tilt_angle_radians)
 
-                #"""
-                # Define minimum and maximum depths
-                min_depth = depth_left#depth_mean - 1000 # Replace with your desired minimum depth
-                max_depth = depth_right#depth_mean + 1000 # Replace with your desired maximum depth
-                print("offset_angle: ", offset_angle, offset_x, offset_y)
-                print("depth: ", depth_left, depth_right, depth_mean, tilt_angle_radians, np.degrees(tilt_angle_radians), half_width_left, half_width_right)
+                    # Calculate the depths at the left and right corners
+                    depth_left = depth_mean #depth_mean - (half_width_left)
+                    depth_right = depth_mean #depth_mean + (half_width_right)
 
-                half_w = rows/2
-                depth_correct = (depth_mean) * np.sin(tilt_angle_radians)
-                depth_l = np.sqrt(depth_mean**2 + half_w**2) - (depth_correct)
-                depth_r = np.sqrt(depth_mean**2 + half_w**2) + (depth_correct)
-                min_depth = depth_l
-                max_depth = depth_r
-                print("NEW: ", half_w, depth_correct, depth_l, depth_r, depth_mean)
+                
+                    # Define minimum and maximum depths
+                    min_depth = depth_left #depth_mean - 1000 # Replace with your desired minimum depth
+                    max_depth = depth_right #depth_mean + 1000 # Replace with your desired maximum depth
+                    #print("offset_angle: ", offset_angle, offset_x, offset_y)
+                    #print("depth: ", depth_left, depth_right, depth_mean, tilt_angle_radians, np.degrees(tilt_angle_radians), half_width_left, half_width_right)
 
-                # Create a linear gradient across the x-axis
-                depth_gradient = np.linspace(min_depth, max_depth, cols2)[:, np.newaxis]
+                    half_w = rows/2
+                    depth_correct = depth_mean #(depth_mean) * np.sin(tilt_angle_radians)
+                    depth_l = depth_mean #np.sqrt(depth_mean**2 + half_w**2) - (depth_correct)
+                    depth_r = depth_mean #np.sqrt(depth_mean**2 + half_w**2) + (depth_correct)
+                    min_depth = depth_l
+                    max_depth = depth_r
+                    #print("NEW: ", half_w, depth_correct, depth_l, depth_r, depth_mean)
 
-                # Create a 2D array with the linear gradient repeated for each row
-                depth_mask = np.tile(depth_gradient, (1, rows2))
-                print(depth_mask.shape)
-                #depth_mask = depth_gradient
+                    # Create a linear gradient across the x-axis
+                    depth_gradient = np.linspace(min_depth, max_depth, cols2)[:, np.newaxis]
 
-                #depth_mask = depth_mask.flatten()[:len(depth_image[mask2].flatten())]
-                #print(len(depth_mask.flatten()), len(mask2.flatten()))
+                    # Create a 2D array with the linear gradient repeated for each row
+                    depth_mask = np.tile(depth_gradient, (1, rows2))
+                    print(depth_mask.shape)
+                    #depth_mask = depth_gradient
 
-                # Use boolean indexing for efficient assignment
-                depth_image[mask2] = depth_mask[mask2]#"""
+                    #depth_mask = depth_mask.flatten()[:len(depth_image[mask2].flatten())]
+                    #print(len(depth_mask.flatten()), len(mask2.flatten()))
+
+                    # Use boolean indexing for efficient assignment
+                    depth_image[mask2] = depth_mask[mask2]
+
+                    altered = 1
 
         self.yolo_data = None
         
@@ -251,11 +276,14 @@ class DepthToPointCloudConverter:
         depth_value = 580
         # Create a mask for the circle
         maskOuter = (x - center[0]) ** 2 + (y - center[1] - y_off) ** 2 >= radius ** 2
-        depth_image[maskOuter] = 0
-        image_out = self.bridge.cv2_to_imgmsg(depth_image, encoding="passthrough")
+        #depth_image[maskOuter] = 0
+        
+        image_out = ros_numpy.image.numpy_to_image(depth_image, "mono8") #np.frombuffer(depth_image.data, dtype=np.float32).reshape(depth_image.height, depth_image.width)
+        #image_out = self.bridge.cv2_to_imgmsg(depth_image, encoding="passthrough")
+        image_out_norm = ros_numpy.image.numpy_to_image(image_mono8, "mono8")
 
         # Generate PointCloud2 message
-        pointcloud_msg, points_list  = self.generate_pointcloud(depth_image, depth_msg.header)
+        ###pointcloud_msg, points_list  = self.generate_pointcloud(depth_image, depth_msg.header)
         #pointcloud_msg = self.generate_pointcloud(depth_alter, depth_msg.header)
 
         #print(len(pointcloud_msg))
@@ -264,8 +292,12 @@ class DepthToPointCloudConverter:
 
         # Publish the PointCloud2 message
         #self.pointcloud_pub.publish(pointcloud_msg_ori)
-        self.pointcloud_pub_sonar.publish(pointcloud_msg)
-        self.image_pub.publish(image_out)
+        ##self.pointcloud_pub_sonar.publish(pointcloud_msg)
+        image_out.header = depth_msg.header
+        if (True):
+            self.image_pub.publish(image_out)
+        else:
+            self.image_pub.publish(image_out_norm)
         if False:
             if self.rate_up == 20:
                 ###print("publish")
